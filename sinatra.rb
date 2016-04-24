@@ -1,6 +1,10 @@
 require 'sinatra'
 require 'sinatra/reloader'
 
+configure do
+  disable :show_exceptions
+end
+
 load 'api/status-led.rb'
 #load 'test/mongo.rb'
 #load 'test/helper.rb'
