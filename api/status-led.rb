@@ -11,6 +11,7 @@ before '/api/*' do
     :password => ENV['MONGO_STATUSLED_PASS']
   )
   @devices = client[:devices]
+  @logs    = client[:logs]
 end
 
 get '/api/status-led/get' do
@@ -19,20 +20,37 @@ get '/api/status-led/get' do
   device = @devices.find(:device_id => params['device_id']).to_a.first.to_h
   
   if device == {}
+    log("Device not found", {:id => params['device_id']})
     status 404
-    return "device not found (id: #{params['device_id']})"
+    return "Device not found (id: #{params['device_id']})"
   end
   
   colors = device["rules"].map.with_index {|rule, i| get_status_color(device, i) }.compact
   
   if 0 < colors.count then
-    return "1" + colors.reduce("") {|tmp, color| tmp + color }
+    res = "1" + colors.reduce("") {|tmp, color| tmp + color }
+    log("Colors sent", {:response => res})
+    return res
   else
+    log("No update")
     return "0"
   end
 end
 
+error do
+  log("Error", {:message => env['sinatra.error'].message})
+end
+
 helpers do
+  def log(event, params = {})
+    timestamp = Time.now.strftime("%Y-%m-%d %H:%M:%S %Z")
+    @logs.insert_one({
+          event: event,
+      timestamp: timestamp,
+            url: request.url,
+         params: params
+    })
+  end
   def get_status_color(device, i)
     rule = device["rules"][i]
     case rule["label"]
